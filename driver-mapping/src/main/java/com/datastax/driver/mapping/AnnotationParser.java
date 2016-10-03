@@ -15,15 +15,12 @@
  */
 package com.datastax.driver.mapping;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.TableMetadata;
-import com.datastax.driver.core.TypeCodec;
-import com.datastax.driver.core.UserType;
+import com.datastax.driver.core.*;
 import com.datastax.driver.mapping.MethodMapper.ParamMapper;
 import com.datastax.driver.mapping.annotations.*;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 
 import java.beans.PropertyDescriptor;
@@ -107,6 +104,7 @@ class AnnotationParser {
 
         Map<String, Object[]> fieldsAndProperties = ReflectionUtils.scanFieldsAndProperties(entityClass);
         AtomicInteger columnCounter = mappingManager.isCassandraV1 ? null : new AtomicInteger(0);
+        Set<String> classLevelTransients = Sets.newHashSet(table.transientProperties());
 
         for (Map.Entry<String, Object[]> entry : fieldsAndProperties.entrySet()) {
 
@@ -117,7 +115,7 @@ class AnnotationParser {
                     ? "col" + columnCounter.incrementAndGet()
                     : null;
 
-            PropertyMapper propertyMapper = new PropertyMapper(entityClass, propertyName, alias, field, property);
+            PropertyMapper propertyMapper = new PropertyMapper(entityClass, propertyName, alias, field, property, classLevelTransients);
 
             if (mappingManager.isCassandraV1 && propertyMapper.isComputed())
                 throw new UnsupportedOperationException("Computed properties are not supported with native protocol v1");
@@ -176,6 +174,7 @@ class AnnotationParser {
         Map<String, PropertyMapper> propertyMappers = new HashMap<String, PropertyMapper>();
 
         Map<String, Object[]> fieldsAndProperties = ReflectionUtils.scanFieldsAndProperties(udtClass);
+        Set<String> classLevelTransients = Sets.newHashSet(udt.transientProperties());
 
         for (Map.Entry<String, Object[]> entry : fieldsAndProperties.entrySet()) {
 
@@ -183,7 +182,7 @@ class AnnotationParser {
             java.lang.reflect.Field field = (java.lang.reflect.Field) entry.getValue()[0];
             PropertyDescriptor property = (PropertyDescriptor) entry.getValue()[1];
 
-            PropertyMapper propertyMapper = new PropertyMapper(udtClass, propertyName, null, field, property);
+            PropertyMapper propertyMapper = new PropertyMapper(udtClass, propertyName, null, field, property, classLevelTransients);
 
             AnnotationChecks.validateAnnotations(propertyMapper, VALID_FIELD_ANNOTATIONS);
 
